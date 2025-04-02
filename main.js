@@ -1,12 +1,18 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.width = 1240;
+canvas.height = 720;
 
+// 게임 시작 화면 배경 (start_background.png)
+const startBackground = new Image();
+startBackground.src = "res/img/start_background.png";
+
+// 플레이어 스프라이트 설정
 const playerSpriteSheet = new Image();
-playerSpriteSheet.src = "res/img/player.png"; // 파일 경로 확인
+playerSpriteSheet.src = "res/img/player.png"; // 플레이어 스프라이트 경로
 
+// 플레이어 객체 (기본 스탯 포함)
 const player = {
     x: 100,
     y: canvas.height - 150,
@@ -17,11 +23,14 @@ const player = {
     dy: 0,
     onGround: false,
     currentFrame: 0,
-    totalFrames: 5, // 총 5프레임
-    animationSpeed: 8, // 애니메이션 속도 (낮을수록 빠름)
+    totalFrames: 5,
+    animationSpeed: 8,
     frameCounter: 0,
     facingRight: true,
-    moving: false
+    moving: false,
+    hp: 100,
+    attack: 10,
+    defense: 5
 };
 
 const groundHeight = 50;
@@ -29,7 +38,101 @@ const groundY = canvas.height - groundHeight;
 
 const keys = { w: false, a: false, d: false };
 
+let gameStarted = false; // 게임 시작 상태
+let blink = true;        // 깜빡임 상태
+let lastBlinkTime = Date.now();
+const blinkInterval = 500; // 500ms 간격
+
+// 게임 시작 시에만 능력치 인터페이스를 동적으로 생성하는 함수
+function createStatsInterface() {
+    const statsDiv = document.createElement("div");
+    statsDiv.id = "stats";
+    statsDiv.style.position = "fixed";
+    statsDiv.style.top = "10px";
+    statsDiv.style.left = "10px";
+    statsDiv.style.zIndex = "10";
+    statsDiv.style.color = "white";
+    statsDiv.style.fontFamily = "'Press Start 2P', sans-serif";
+    statsDiv.style.fontSize = "16px";
+    statsDiv.style.background = "rgba(0, 0, 0, 0.5)";
+    statsDiv.style.padding = "10px";
+    statsDiv.style.borderRadius = "5px";
+    statsDiv.style.display = "flex";
+    statsDiv.style.flexDirection = "column";
+    statsDiv.style.gap = "5px";
+    document.body.appendChild(statsDiv);
+}
+
+// 능력치 인터페이스 업데이트 함수 (세로 정렬, 각 항목마다 줄바꿈)
+function updateStats() {
+    const statsDiv = document.getElementById("stats");
+    if (statsDiv) {
+        statsDiv.innerHTML = `HP: ${player.hp}<br>ATK: ${player.attack}<br>DEF: ${player.defense}`;
+    }
+}
+
+// 게임 시작 화면 텍스트 그리기 함수 (start_background 사용)
+function drawStartScreen() {
+    ctx.drawImage(startBackground, 0, 0, canvas.width, canvas.height);
+    
+    const currentTime = Date.now();
+    if (currentTime - lastBlinkTime > blinkInterval) {
+        blink = !blink;
+        lastBlinkTime = currentTime;
+    }
+    if (blink) {
+        ctx.fillStyle = "white";
+        ctx.font = "40px 'Press Start 2P', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Press Enter To START", canvas.width / 2, canvas.height - 50);
+    }
+}
+
+// 게임 루프 함수
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (!gameStarted) {
+        drawStartScreen();
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    // 게임 플레이 배경: 하늘과 땅 그리기
+    ctx.fillStyle = "#87CEEB"; // 하늘색
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = "#228B22"; // 땅 색상
+    ctx.fillRect(0, groundY, canvas.width, groundHeight);
+    
+    // 플레이어 그리기 (애니메이션)
+    const frameWidth = player.width;
+    const frameHeight = player.height;
+    const spriteX = player.currentFrame * frameWidth;
+    const spriteY = 0;
+    
+    ctx.save();
+    if (!player.facingRight) {
+        ctx.scale(-1, 1);
+        ctx.drawImage(playerSpriteSheet, spriteX, spriteY, frameWidth, frameHeight, 
+                      -player.x - player.width, player.y, player.width, player.height);
+    } else {
+        ctx.drawImage(playerSpriteSheet, spriteX, spriteY, frameWidth, frameHeight, 
+                      player.x, player.y, player.width, player.height);
+    }
+    ctx.restore();
+    
+    movePlayer();
+    updateStats();
+    requestAnimationFrame(gameLoop);
+}
+
+// 키 이벤트 처리
 document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !gameStarted) {
+        gameStarted = true;
+        createStatsInterface(); // 게임 시작 시 능력치 인터페이스 동적 생성
+    }
     if (e.key === "a") {
         keys.a = true;
         player.moving = true;
@@ -50,11 +153,9 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("keyup", (e) => {
     if (e.key === "a") keys.a = false;
     if (e.key === "d") keys.d = false;
-
-    // 이동 키를 떼면 정지 상태
     if (!keys.a && !keys.d) {
         player.moving = false;
-        player.currentFrame = 0; // 첫 번째 프레임 (정지)
+        player.currentFrame = 0; // 정지 시 첫 번째 프레임
     }
 });
 
@@ -62,55 +163,26 @@ function movePlayer() {
     if (keys.a) player.dx = -player.speed;
     else if (keys.d) player.dx = player.speed;
     else player.dx = 0;
-
+    
     if (!player.onGround) player.dy += 0.5;
-
+    
     player.x += player.dx;
     player.y += player.dy;
-
+    
     if (player.y >= groundY - player.height) {
         player.y = groundY - player.height;
         player.dy = 0;
         player.onGround = true;
     }
-
-    // 이동 중일 때만 2~5 프레임 반복
+    
     if (player.moving) {
         player.frameCounter++;
         if (player.frameCounter >= player.animationSpeed) {
             player.frameCounter = 0;
-            player.currentFrame++; // 다음 프레임으로 이동
-            if (player.currentFrame > 4) player.currentFrame = 1; // 2~5 프레임 순환
+            player.currentFrame++;
+            if (player.currentFrame > 4) player.currentFrame = 1;
         }
     }
-}
-
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 땅 그리기
-    ctx.fillStyle = "#228B22";
-    ctx.fillRect(0, groundY, canvas.width, groundHeight);
-
-    // 플레이어 스프라이트 그리기
-    const frameWidth = player.width;
-    const frameHeight = player.height;
-    const spriteX = player.currentFrame * frameWidth;
-    const spriteY = 0;
-
-    ctx.save();
-    if (!player.facingRight) {
-        ctx.scale(-1, 1);
-        ctx.drawImage(playerSpriteSheet, spriteX, spriteY, frameWidth, frameHeight, 
-                      -player.x - player.width, player.y, player.width, player.height);
-    } else {
-        ctx.drawImage(playerSpriteSheet, spriteX, spriteY, frameWidth, frameHeight, 
-                      player.x, player.y, player.width, player.height);
-    }
-    ctx.restore();
-
-    movePlayer();
-    requestAnimationFrame(gameLoop);
 }
 
 playerSpriteSheet.onload = function () {
