@@ -43,31 +43,12 @@ let blink = true;        // 깜빡임 상태
 let lastBlinkTime = Date.now();
 const blinkInterval = 500; // 500ms 간격
 
-// 게임 시작 시에만 능력치 인터페이스를 동적으로 생성하는 함수
-function createStatsInterface() {
-    const statsDiv = document.createElement("div");
-    statsDiv.id = "stats";
-    statsDiv.style.position = "fixed";
-    statsDiv.style.top = "10px";
-    statsDiv.style.left = "10px";
-    statsDiv.style.zIndex = "10";
-    statsDiv.style.color = "white";
-    statsDiv.style.fontFamily = "'Press Start 2P', sans-serif";
-    statsDiv.style.fontSize = "16px";
-    statsDiv.style.background = "rgba(0, 0, 0, 0.5)";
-    statsDiv.style.padding = "10px";
-    statsDiv.style.borderRadius = "5px";
-    statsDiv.style.display = "flex";
-    statsDiv.style.flexDirection = "column";
-    statsDiv.style.gap = "5px";
-    document.body.appendChild(statsDiv);
-}
-
 // 능력치 인터페이스 업데이트 함수 (세로 정렬, 각 항목마다 줄바꿈)
 function updateStats() {
     const statsDiv = document.getElementById("stats");
     if (statsDiv) {
         statsDiv.innerHTML = `HP: ${player.hp}<br>ATK: ${player.attack}<br>DEF: ${player.defense}`;
+        statsDiv.style.display= "block";
     }
 }
 
@@ -131,7 +112,6 @@ function gameLoop() {
 document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !gameStarted) {
         gameStarted = true;
-        createStatsInterface(); // 게임 시작 시 능력치 인터페이스 동적 생성
     }
     if (e.key === "a") {
         keys.a = true;
