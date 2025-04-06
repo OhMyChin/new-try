@@ -175,7 +175,10 @@ function updatePlayer() {
   if (player.moving) {
     player.frameCounter++;
     if (player.frameCounter >= player.animationSpeed) {
-      player.currentFrame = (player.currentFrame + 1) % (player.totalFrames - 1) + 1;
+      player.currentFrame++;
+      if (player.currentFrame > 4) {
+        player.currentFrame = 1;
+      }
       player.frameCounter = 0;
     }
   } else {
