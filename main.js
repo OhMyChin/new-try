@@ -111,12 +111,16 @@ function playerAttack() {
 }
 
 function performMeleeAttack() {
+  // 무기의 attack() 메서드를 호출해 공격 hitbox를 생성 (절대 좌표 기준)
   const hitbox = player.weapon.attack(player.x, player.y, player.facingRight);
+  
+  // 최종 데미지는 플레이어 공격력 + 무기 고유 데미지
   const totalDamage = player.attack + hitbox.damage;
   hitbox.damage = totalDamage;
   console.log(`근접 공격! 총 데미지: ${totalDamage}`);
 
-  enemies.forEach(enemy => {
+  // 적과의 충돌 판정 (간단한 AABB 충돌 체크)
+  enemies.forEach((enemy) => {
     if (
       enemy.alive &&
       hitbox.x < enemy.x + enemy.width &&
@@ -128,10 +132,16 @@ function performMeleeAttack() {
       console.log(`${enemy.name}에게 ${totalDamage}의 피해! 남은 HP: ${enemy.hp}`);
     }
   });
-
-  // 히트박스 시각화 (디버깅용)
-  currentHitbox = hitbox;
-  hitboxTimer = 10; // 10프레임 동안 표시
+  
+  // 절대 좌표 hitbox를 플레이어 기준 상대 오프셋으로 저장
+  currentHitbox = {
+    offsetX: hitbox.x - player.x,
+    offsetY: hitbox.y - player.y,
+    width: hitbox.width,
+    height: hitbox.height,
+    damage: hitbox.damage
+  };
+  hitboxTimer = 10; // 10프레임 동안 히트박스 시각화
 }
 
 function performRangedAttack() {
@@ -202,6 +212,30 @@ function drawStartScreen() {
   }
 }
 
+// 무기 리스트 UI 틀 이미지 (weapon_list.png)
+const weaponListImage = new Image();
+weaponListImage.src = "res/img/weapon_list.png";
+
+// 무기 아이콘은 player.weapon.icon을 사용
+function drawWeaponUI() {
+  // UI 틀 그리기 (weapon_list.png는 전체 슬롯 UI 배경)
+  const uiX = canvas.width - 170;
+  const uiY = 10;
+  if (weaponListImage.complete) {
+    ctx.drawImage(weaponListImage, uiX, uiY, 160, 40);
+  }
+  // 현재 무기 아이콘 그리기
+  const iconImg = new Image();
+  iconImg.src = player.weapon.icon;
+  if (iconImg.complete) {
+    // 슬롯당 40x40, 내부 아이콘은 36x36 (테두리 2px)
+    const slotX = uiX + 2; // 첫 번째 슬롯 기준
+    const slotY = uiY + 2;
+    ctx.drawImage(iconImg, slotX, slotY, 36, 36);
+  }
+}
+
+
 // 플레이어 그리기
 function drawPlayer() {
   ctx.save();
@@ -244,15 +278,13 @@ function drawEnemies() {
 // 히트박스 그리기 (디버깅용)
 function drawHitbox() {
   if (currentHitbox && hitboxTimer > 0) {
+    // 플레이어의 현재 위치에 상대적 오프셋을 적용해 hitbox 좌표 재계산
+    const boxX = player.x + currentHitbox.offsetX;
+    const boxY = player.y + currentHitbox.offsetY;
     ctx.save();
     ctx.strokeStyle = "red";
     ctx.lineWidth = 2;
-    ctx.strokeRect(
-      currentHitbox.x,
-      currentHitbox.y,
-      currentHitbox.width,
-      currentHitbox.height
-    );
+    ctx.strokeRect(boxX, boxY, currentHitbox.width, currentHitbox.height);
     ctx.restore();
     hitboxTimer--;
     if (hitboxTimer === 0) currentHitbox = null;
@@ -276,6 +308,7 @@ function drawScene() {
   drawEnemies();
   drawHitbox();
   updateStats();
+  drawWeaponUI()
 }
 
 // 메인 게임 루프
